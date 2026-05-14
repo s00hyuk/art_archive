@@ -1,0 +1,163 @@
+{
+  "_meta": {
+    "version": "0.1",
+    "purpose": "Map visual attributes of paintings to non-visual sensory descriptors for blind/low-vision audiences.",
+    "design_notes": [
+      "Each entry has at least one of: tactile, temperature, spatial, auditory, kinesthetic, somatic.",
+      "Use this as a translation prior, not a hard substitution. The VLM should ground these in the specific artwork.",
+      "Color words are kept (congenitally blind people learn color via language) but always paired with cross-modal anchors."
+    ]
+  },
+
+  "color": {
+    "warm": {
+      "examples": ["red", "orange", "yellow", "ochre", "crimson", "amber"],
+      "temperature": "햇볕이 오래 닿은 돌의 따뜻함, 난로 가까이의 온기",
+      "tactile": "체온에 가깝게 데워진 천의 부드러움",
+      "auditory": "낮은 음의 첼로, 따뜻한 모음을 길게 내는 허밍"
+    },
+    "cool": {
+      "examples": ["blue", "cyan", "teal", "indigo", "navy"],
+      "temperature": "이른 새벽 공기, 얼음에 닿기 직전의 서늘함",
+      "tactile": "매끄러운 유리, 시원한 도자기 표면",
+      "auditory": "맑은 종소리, 멀리서 들리는 플루트"
+    },
+    "earth": {
+      "examples": ["brown", "umber", "sienna", "ochre", "olive"],
+      "temperature": "한낮의 흙바닥처럼 미지근한 온기",
+      "tactile": "마른 흙을 손으로 비빌 때의 거친 입자감",
+      "olfactory_hint": "비 온 뒤 마른 흙냄새"
+    },
+    "monochrome_dark": {
+      "examples": ["black", "deep gray", "near-black"],
+      "temperature": "동굴 안 공기처럼 서늘하고 변화 없는 온도",
+      "spatial": "끝이 보이지 않는 깊이",
+      "auditory": "소리가 흡수되어 사라지는 무음"
+    },
+    "high_chroma": {
+      "examples": ["vivid", "saturated", "neon-like"],
+      "kinesthetic": "심장이 빨라지는 듯한 들뜸",
+      "auditory": "관악기가 한꺼번에 울리는 강한 합주"
+    }
+  },
+
+  "brushwork": {
+    "impasto_rough": {
+      "examples": ["thick impasto", "palette knife strokes", "Van Gogh-style swirls"],
+      "tactile": "거칠게 쌓아 올린 굳은 반죽, 손끝에 걸리는 단단한 융기",
+      "kinesthetic": "심장 박동처럼 일정 간격으로 진동하는 에너지",
+      "auditory": "낮게 끓는 듯한 두꺼운 진동음"
+    },
+    "soft_blended": {
+      "examples": ["sfumato", "smooth gradient", "Leonardo-style transitions"],
+      "tactile": "한참 어루만진 비단의 매끄러움, 경계가 사라진 안개 같은 부드러움",
+      "auditory": "긴 호흡으로 이어지는 첼로의 지속음",
+      "kinesthetic": "들숨이 천천히 길어지는 느낌"
+    },
+    "broken_color_dab": {
+      "examples": ["broken color", "small dabs", "Impressionist touch", "Monet-like"],
+      "tactile": "잘게 부서진 모래알이 손바닥 위에서 굴러가는 느낌",
+      "auditory": "수면 위로 떨어지는 빗방울이 겹쳐 울리는 소리",
+      "kinesthetic": "빛의 입자가 깜빡이듯 흔들리는 율동"
+    },
+    "linear_precise": {
+      "examples": ["fine line", "precise drawing", "controlled stroke"],
+      "tactile": "팽팽하게 당겨진 실의 분명한 윤곽",
+      "kinesthetic": "호흡을 멈추고 한 줄을 긋는 정적"
+    }
+  },
+
+  "composition": {
+    "open_sky_horizon": {
+      "examples": ["wide sky", "open horizon", "expansive landscape"],
+      "spatial": "머리 위로 끝없이 열린 천장, 양팔을 벌려도 끝에 닿지 않는 넓이",
+      "kinesthetic": "가슴이 천천히 부푸는 깊은 들숨"
+    },
+    "enclosed_intimate": {
+      "examples": ["interior scene", "close-up portrait", "tight framing"],
+      "spatial": "팔이 닿을 만한 가까운 벽, 숨소리가 들릴 거리",
+      "auditory": "방 안에서 옷자락 스치는 소리가 또렷이 들리는 정적"
+    },
+    "deep_perspective": {
+      "examples": ["one-point perspective", "long road into distance"],
+      "spatial": "발 앞에서 시작해 점점 멀어져 사라지는 길의 깊이",
+      "kinesthetic": "한 걸음씩 끌려가는 듯한 전방 인력"
+    },
+    "diagonal_dynamic": {
+      "examples": ["diagonal composition", "tilted axis"],
+      "kinesthetic": "몸이 한쪽으로 기울며 균형을 잡으려는 긴장",
+      "auditory": "오르내리는 음계의 글리산도"
+    },
+    "centered_symmetry": {
+      "examples": ["symmetric", "frontal", "centered"],
+      "spatial": "좌우가 똑같은 무게로 균형 잡힌 정적",
+      "auditory": "지속되는 단일 화음"
+    }
+  },
+
+  "light": {
+    "chiaroscuro_strong": {
+      "examples": ["strong contrast of light and dark", "tenebrism"],
+      "temperature": "빛이 닿는 면은 따뜻하고 그늘은 서늘한, 한 작품 안의 온도 격차",
+      "tactile": "한쪽은 데워진 돌, 한쪽은 차가운 그늘",
+      "auditory": "큰 북 한 번과 긴 침묵의 교차"
+    },
+    "diffuse_overcast": {
+      "examples": ["overcast", "diffuse soft light"],
+      "temperature": "한결같이 미지근한 공기",
+      "tactile": "얇은 면포로 감싼 듯한 부드러운 압력"
+    },
+    "golden_hour": {
+      "examples": ["sunset", "warm low-angle light"],
+      "temperature": "하루의 끝에 남은 따뜻함",
+      "auditory": "낮게 깔리는 현악기의 마지막 한 음"
+    },
+    "luminous_atmospheric": {
+      "examples": ["atmospheric haze", "luminous fog"],
+      "spatial": "경계가 흐려져 어디까지가 안이고 밖인지 알 수 없는 공간",
+      "tactile": "얼굴에 닿는 미세한 물안개"
+    }
+  },
+
+  "motion": {
+    "swirling_turbulent": {
+      "examples": ["swirling sky", "turbulent water", "spiraling forms"],
+      "kinesthetic": "몸 주위를 휘감으며 도는 바람",
+      "auditory": "낮게 회전하는 저음의 떨림",
+      "tactile": "팔에 감기는 회오리"
+    },
+    "still_quiet": {
+      "examples": ["still life", "static", "windless"],
+      "auditory": "시계 초침이 들릴 정도의 정적",
+      "kinesthetic": "숨이 가지런해지는 안정"
+    },
+    "rhythmic_repetition": {
+      "examples": ["repeated forms", "wave pattern"],
+      "auditory": "일정한 간격으로 반복되는 박자",
+      "kinesthetic": "심호흡의 들숨-날숨 리듬"
+    }
+  },
+
+  "subject": {
+    "human_face_intimate": {
+      "examples": ["close portrait", "direct gaze"],
+      "spatial": "마주 앉은 사람과의 한 뼘 거리",
+      "somatic": "시선을 받고 있다는 미세한 긴장"
+    },
+    "nature_organic": {
+      "examples": ["flowers", "trees", "field"],
+      "tactile": "잎맥의 도드라짐, 꽃잎의 얇은 결",
+      "olfactory_hint": "풀 비린내 또는 꽃의 옅은 단내"
+    },
+    "water_reflective": {
+      "examples": ["pond", "river", "reflection on water"],
+      "tactile": "손끝을 살짝 담갔을 때의 미끄러움",
+      "auditory": "수면이 가볍게 흔들리는 소리"
+    },
+    "architecture_structured": {
+      "examples": ["building", "cathedral", "facade"],
+      "tactile": "오래된 돌의 차갑고 단단한 결",
+      "spatial": "위로 솟아 머리를 들게 하는 수직 압력"
+    }
+  }
+}

@@ -1,11 +1,26 @@
 name: Fetch Kaggle Dataset
 
-on: 
+# ---------------------------------------------------------------------------
+# DISABLED — kept for reference only.
+#
+# This workflow pushes the full ~2GB Kaggle dataset into the repo via Git LFS,
+# which conflicts with the project's "A-plan" data strategy (commit only the
+# 15 sampled artworks under data/samples/, keep the raw dataset local-only —
+# see README.md and .gitignore).
+#
+# To re-enable in the future:
+#   1. Remove the `if: false` guard on the job below.
+#   2. Add the KAGGLE_USERNAME / KAGGLE_KEY repository secrets.
+#   3. Confirm the repo's Git LFS quota is sufficient (~2GB).
+# ---------------------------------------------------------------------------
+
+on:
   workflow_dispatch: # GitHub 웹에서 수동으로 실행하기 위한 트리거
 
 jobs:
   download-and-push:
     runs-on: ubuntu-latest
+    if: false # disabled — see header comment
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
