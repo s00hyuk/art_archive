@@ -1,0 +1,16 @@
+# Core
+pandas>=2.2.0
+Pillow>=10.0.0
+python-dotenv>=1.0.0
+
+# OpenAI VLM
+openai>=1.40.0
+
+# Kaggle data download (optional, used by scripts/download_kaggle.py)
+kaggle>=1.6.0
+
+# Gradio PoC UI
+gradio>=4.40.0
+
+# TTS for accessibility playback
+gTTS>=2.5.0

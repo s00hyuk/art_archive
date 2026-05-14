@@ -1,0 +1,40 @@
+# Secrets — never commit
+.env
+.env.local
+*.key
+kaggle.json
+
+# Raw Kaggle dataset — too large for GitHub (use scripts/download_kaggle.py locally)
+data/raw/
+
+# Generated outputs (uncomment to commit curations as eval set)
+# outputs/curations/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Gradio
+gradio_cached_examples/
+flagged/
+
+# TTS cache
+*.mp3
+tts_cache/
