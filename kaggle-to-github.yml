@@ -1,0 +1,45 @@
+name: Fetch Kaggle Dataset
+
+on: 
+  workflow_dispatch: # GitHub 웹에서 수동으로 실행하기 위한 트리거
+
+jobs:
+  download-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Kaggle API
+        run: pip install kaggle
+
+      - name: Download Dataset
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          # 캐글 데이터셋 다운로드 명령어 (데이터셋 이름 변경 필요)
+          kaggle datasets download -d ikarus777/best-artworks-of-all-time
+          
+          # 압축 해제 (필요시)
+          unzip best-artworks-of-all-time.zip -d ./artworks_data
+          rm best-artworks-of-all-time.zip
+
+      - name: Setup Git LFS
+        run: |
+          git lfs install
+          git lfs track "*.jpg" "*.png" "*.csv" # 대용량 파일 확장자 추적
+          git add .gitattributes
+
+      - name: Commit and Push to GitHub
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          git add artworks_data/ .gitattributes
+          git commit -m "Add Kaggle dataset via GitHub Actions"
+          git push
