@@ -2,15 +2,27 @@
 pandas>=2.2.0
 Pillow>=10.0.0
 python-dotenv>=1.0.0
+tqdm>=4.66.0
 
-# OpenAI VLM
+# OpenAI VLM + TTS
 openai>=1.40.0
 
 # Kaggle data download (optional, used by scripts/download_kaggle.py)
 kaggle>=1.6.0
 
-# Gradio PoC UI
+# Gradio PoC UI (legacy app.py)
 gradio>=4.40.0
 
-# TTS for accessibility playback
+# TTS fallback for the legacy app
 gTTS>=2.5.0
+
+# Evaluation metrics
+nltk>=3.8.0
+rouge-score>=0.1.2
+bert-score>=0.3.13
+scipy>=1.11.0
+
+# Analysis / plotting
+matplotlib>=3.8.0
+seaborn>=0.13.0
+jupyter>=1.0.0
