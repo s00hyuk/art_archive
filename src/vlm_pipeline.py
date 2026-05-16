@@ -23,6 +23,7 @@ import base64
 import io
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -145,6 +146,76 @@ class CurationResult:
         }
 
 
+# Post-processing safety net. The prompt forbids these patterns but Korean
+# idioms ("멀리서 보이는", "두드러져 보입니다", "X처럼 보이며") slip through
+# occasionally. Replace them with blind-audience-appropriate equivalents.
+_VISUAL_REPLACEMENTS: list[tuple[str, str]] = [
+    (r"멀리에서 보이는", "멀리 자리한"),
+    (r"멀리서 보이는", "멀리 자리한"),
+    (r"멀리 보이는", "멀리 자리한"),
+    (r"멀리에서 보이며", "멀리 떨어져 있으며"),
+    (r"멀리서 보이며", "멀리 떨어져 있으며"),
+    (r"멀리 보이며", "멀리 떨어져 있으며"),
+    (r"멀리에서 보입니다", "멀리 떨어져 있습니다"),
+    (r"멀리서 보입니다", "멀리 떨어져 있습니다"),
+    (r"멀리 보입니다", "멀리 떨어져 있습니다"),
+    # "반쯤 보이는 X" → "반쯤 드러난 X"
+    (r"반쯤 보이는", "반쯤 드러난"),
+    (r"어렴풋이 보이는", "어렴풋이 자리한"),
+    (r"흐릿하게 보이는", "흐릿하게 자리한"),
+    # Object-marker "을/를 보이며" → "을/를 띠며"
+    (r"을 보이며", "을 띠며"),
+    (r"를 보이며", "를 띠며"),
+    (r"을 보이는", "을 띤"),
+    (r"를 보이는", "를 띤"),
+    (r"두드러져 보입니다", "두드러집니다"),
+    (r"두드러져 보이며", "두드러지며"),
+    (r"도드라져 보입니다", "도드라집니다"),
+    (r"도드라져 보이며", "도드라지며"),
+    (r"돋보입니다", "두드러집니다"),
+    (r"돋보이며", "두드러지며"),
+    (r"눈에 띄는", "두드러지는"),
+    (r"눈에 띕니다", "두드러집니다"),
+    (r"한눈에", "한 번에"),
+    (r"시야에 들어옵니다", "가까이 다가옵니다"),
+    (r"시야에 들어오며", "가까이 다가오며"),
+    # Bare end-of-sentence "보입니다" → "있습니다"
+    (r"보입니다(\s|$|\.)", r"있습니다\1"),
+    # "X처럼 보이며" → "X처럼 느껴지며"
+    (r"처럼 보이며", "처럼 느껴지며"),
+    (r"처럼 보이는", "처럼 느껴지는"),
+    (r"처럼 보입니다", "처럼 느껴집니다"),
+    # General "보이며" / "보이는" mid-sentence — slightly grammar-aware
+    (r"이 보이며", "이 자리하며"),
+    (r"가 보이며", "가 자리하며"),
+    (r"이 보이는", "이 자리한"),
+    (r"가 보이는", "가 자리한"),
+    # "그림에서/화면에서 ... 보입니다/보이는"
+    (r"화면에 보입니다", "이 작품에 있습니다"),
+    (r"그림에서 보입니다", "이 작품에 있습니다"),
+    (r"그림을 보는", "이 작품 앞에 서면"),
+    (r"보는 이에게", "청자에게"),
+    # Bare color noun phrases — anchor with sensation
+    (r"푸른 하늘이 드러나", "맑고 차가운 하늘이 트여"),
+    (r"푸른 하늘이 펼쳐", "맑고 차가운 하늘이 펼쳐"),
+    (r"푸른 하늘이 ", "맑고 차가운 하늘이 "),
+    (r"푸른 하늘은", "맑고 차가운 하늘은"),
+    (r"회색빛 하늘", "흐리고 가라앉은 하늘"),
+    (r"회색빛 구름", "차갑게 내려앉은 구름"),
+    (r"녹색 벽이", "서늘한 결의 벽이"),
+    (r"녹색 벽은", "서늘한 결의 벽은"),
+    (r"붉은 벽이", "따뜻한 결의 벽이"),
+    (r"노란 벽이", "따뜻한 결의 벽이"),
+]
+
+
+def _sanitize_visual(text: str) -> str:
+    """Replace residual visual-centric phrases that slip past the prompt."""
+    for pattern, replacement in _VISUAL_REPLACEMENTS:
+        text = re.sub(pattern, replacement, text)
+    return text
+
+
 def _encode_image_data_url(image_path: Path, max_edge: int = 1024) -> str:
     """Downscale + JPEG-encode the image and return a data URL for the API."""
     with Image.open(image_path) as im:
@@ -240,6 +311,11 @@ class SensoryCurator:
         data["artwork_id"] = artwork_id
         data["artist"] = artist
         data["dominant_sense_type"] = dominant_sense
+
+        # Sanitize visual-centric phrasing from the three narrative fields.
+        for narrative_field in ("step1_spatial_overview", "step2_sensory_zoom_in", "tts_script"):
+            if narrative_field in data and isinstance(data[narrative_field], str):
+                data[narrative_field] = _sanitize_visual(data[narrative_field])
 
         return CurationResult(raw=data, **{k: data[k] for k in CURATION_JSON_SCHEMA["schema"]["required"]})
 
