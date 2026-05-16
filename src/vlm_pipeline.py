@@ -1,9 +1,10 @@
-"""VLM curation pipeline (v4 — naturalized).
+"""VLM curation pipeline (v5 — long-form few-shot).
 
 Given an artwork image and the gold dataset's artist→dominant_sense map,
-produce a 7-block Korean docent script (intro / composition prefix-with-천천히 /
-step1 spatial overview / natural scan guide / sensory prefix / step2 sensory
-zoom-in / natural merged closing) packaged as `tts_script`.
+produce a structured curation. step1_spatial_overview and step2_sensory_zoom_in
+are 350-500 chars each; tts_script is 800-1100 chars and follows the format
+"[intro] 먼저 화면의 큰 배치를 떠올려보겠습니다. [step1] 이제 이 장면을
+몸의 감각으로 가까이 느껴보겠습니다. [step2]".
 
 The system prompt at src/prompts/system_prompt.md carries the structure and
 3 hand-curated few-shot examples (Van Gogh / Monet / Da Vinci). The gold
@@ -39,14 +40,17 @@ GOLD_CSV_PATH = REPO_ROOT / "data" / "gold" / "sensedocent_100.csv"
 # `properties` field to also be listed in `required`, and additionalProperties
 # must be false at every level.
 CURATION_JSON_SCHEMA: dict[str, Any] = {
-    "name": "sensory_curation_v4",
+    "name": "sensory_curation_v5",
     "strict": True,
     "schema": {
         "type": "object",
         "additionalProperties": False,
         "required": [
             "artwork_id",
+            "artwork_name",
             "artist",
+            "artist_ko",
+            "title_en",
             "title_ko",
             "artwork_year",
             "period_style",
@@ -58,10 +62,17 @@ CURATION_JSON_SCHEMA: dict[str, Any] = {
             "step1_spatial_overview",
             "step2_sensory_zoom_in",
             "tts_script",
+            "tts_voice_style",
+            "difficulty_level",
+            "evaluation_group",
+            "quality_check_status",
         ],
         "properties": {
             "artwork_id": {"type": "string"},
+            "artwork_name": {"type": "string"},
             "artist": {"type": "string"},
+            "artist_ko": {"type": "string"},
+            "title_en": {"type": "string"},
             "title_ko": {"type": "string"},
             "artwork_year": {"type": "string"},
             "period_style": {"type": "string"},
@@ -73,6 +84,10 @@ CURATION_JSON_SCHEMA: dict[str, Any] = {
             "step1_spatial_overview": {"type": "string"},
             "step2_sensory_zoom_in": {"type": "string"},
             "tts_script": {"type": "string"},
+            "tts_voice_style": {"type": "string"},
+            "difficulty_level": {"type": "string"},
+            "evaluation_group": {"type": "string"},
+            "quality_check_status": {"type": "string"},
         },
     },
 }
@@ -84,7 +99,10 @@ DEFAULT_DOMINANT_SENSE = "spatial"
 @dataclass
 class CurationResult:
     artwork_id: str
+    artwork_name: str
     artist: str
+    artist_ko: str
+    title_en: str
     title_ko: str
     artwork_year: str
     period_style: str
@@ -96,12 +114,19 @@ class CurationResult:
     step1_spatial_overview: str
     step2_sensory_zoom_in: str
     tts_script: str
+    tts_voice_style: str
+    difficulty_level: str
+    evaluation_group: str
+    quality_check_status: str
     raw: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "artwork_id": self.artwork_id,
+            "artwork_name": self.artwork_name,
             "artist": self.artist,
+            "artist_ko": self.artist_ko,
+            "title_en": self.title_en,
             "title_ko": self.title_ko,
             "artwork_year": self.artwork_year,
             "period_style": self.period_style,
@@ -113,6 +138,10 @@ class CurationResult:
             "step1_spatial_overview": self.step1_spatial_overview,
             "step2_sensory_zoom_in": self.step2_sensory_zoom_in,
             "tts_script": self.tts_script,
+            "tts_voice_style": self.tts_voice_style,
+            "difficulty_level": self.difficulty_level,
+            "evaluation_group": self.evaluation_group,
+            "quality_check_status": self.quality_check_status,
         }
 
 
@@ -202,7 +231,7 @@ class SensoryCurator:
                     ],
                 },
             ],
-            temperature=0.4,
+            temperature=0.7,
         )
         content = response.choices[0].message.content or "{}"
         data = json.loads(content)

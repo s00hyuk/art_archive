@@ -1,4 +1,4 @@
-"""Gradio PoC for the sensory curation pipeline (v4 — 7-block naturalized tts).
+"""Gradio PoC for the sensory curation pipeline (v5 — long-form few-shot).
 
 Two tabs:
   - 샘플 작품: browse the 15 pre-curated artworks (free, cache-only).
@@ -242,11 +242,20 @@ def _gtts_to_file(text: str) -> str:
 
 
 def on_tts(text: str):
-    """Synthesize Korean TTS with a 1.5 s breath between intro and body."""
+    """Synthesize Korean TTS with a 1.5 s breath between intro and body.
+
+    Splits at the first transition marker — v5 uses "먼저 화면의", earlier
+    versions used "먼저 작품의". We accept either so cached old curations
+    still get the pause.
+    """
     if not text or not text.strip():
         return None
-    marker = "먼저 작품의"
-    idx = text.find(marker)
+    idx = -1
+    for marker in ("먼저 화면의", "먼저 작품의"):
+        i = text.find(marker)
+        if i > 0:
+            idx = i
+            break
     if idx <= 0 or not _FFMPEG_OK:
         return _gtts_to_file(text)
     intro_text = text[:idx].strip()
@@ -385,10 +394,10 @@ def build_app() -> gr.Blocks:
 
     # ---- UI ----
 
-    with gr.Blocks(css=CSS, title="공감각 미술 큐레이션 PoC v4") as demo:
+    with gr.Blocks(css=CSS, title="공감각 미술 큐레이션 PoC v5") as demo:
         gr.Markdown(
-            "# 시각장애인을 위한 공감각 미술 큐레이션 (v4)\n"
-            "**도입 → 구도 → Step 1 공간 개요 → 자연 스캔 → Step 2 감각 줌인 → 자연 마무리** 의 7블록 자연화 도슨트. "
+            "# 시각장애인을 위한 공감각 미술 큐레이션 (v5)\n"
+            "**도입 → 화면의 큰 배치 (Step 1, 350–500자) → 몸의 감각 (Step 2, 350–500자)** 의 장문 도슨트 (총 800–1,100자). "
             "작가별로 지배 감각(dominant sense)이 정해져 있고, TTS에는 도입부 뒤 1.5초 호흡 포즈가 들어갑니다."
         )
 
