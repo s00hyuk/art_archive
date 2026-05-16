@@ -1,4 +1,4 @@
-"""Gradio PoC for the sensory curation pipeline.
+"""Gradio PoC for the sensory curation pipeline (v3 — 8-block tts_script).
 
 Run:
     python app.py
@@ -7,6 +7,7 @@ Run:
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from pathlib import Path
 
@@ -16,20 +17,83 @@ from gtts import gTTS
 from src.data_loader import load_samples
 from src.vlm_pipeline import SensoryCurator
 
+# READONLY=1 hides the "큐레이션 생성" button so a public demo (e.g. HF Spaces)
+# can only serve the 15 pre-generated curations — no OpenAI API calls from
+# anonymous visitors, no credit drain.
+READONLY = os.environ.get("READONLY", "0") == "1"
+
+import subprocess
+
+# Use the ffmpeg binary bundled with imageio_ffmpeg so users don't need a
+# system install. pydub is avoided because it also requires ffprobe.
+try:
+    import imageio_ffmpeg
+
+    _FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
+    _FFMPEG_OK = True
+except Exception:  # pragma: no cover
+    _FFMPEG_BIN = "ffmpeg"
+    _FFMPEG_OK = False
+
+INTRO_PAUSE_MS = 1500  # 1.5 s breathing pause after the docent intro
+_SILENCE_CACHE: dict[str, str] = {}
+
+
+def _silent_mp3(duration_ms: int) -> str:
+    """Return the path to a cached silent MP3 of the requested duration."""
+    key = str(duration_ms)
+    if key in _SILENCE_CACHE:
+        return _SILENCE_CACHE[key]
+    out = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+    subprocess.run(
+        [
+            _FFMPEG_BIN, "-y", "-loglevel", "error",
+            "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono",
+            "-t", f"{duration_ms / 1000:.3f}",
+            "-q:a", "9", out.name,
+        ],
+        check=True,
+    )
+    _SILENCE_CACHE[key] = out.name
+    return out.name
+
+
+def _concat_mp3s(parts: list[str]) -> str:
+    """Concat MP3 files with ffmpeg's concat demuxer (no re-encode)."""
+    listing = tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w")
+    for p in parts:
+        listing.write(f"file '{p}'\n")
+    listing.close()
+    out = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+    subprocess.run(
+        [
+            _FFMPEG_BIN, "-y", "-loglevel", "error",
+            "-f", "concat", "-safe", "0",
+            "-i", listing.name, "-c", "copy", out.name,
+        ],
+        check=True,
+    )
+    return out.name
+
 REPO_ROOT = Path(__file__).resolve().parent
 CURATIONS_DIR = REPO_ROOT / "outputs" / "curations"
 
 CSS = """
-.big-curation textarea {
+.big-tts textarea {
     font-size: 22px !important;
-    line-height: 1.7 !important;
+    line-height: 1.75 !important;
     font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
 }
-.sensory-box textarea {
-    font-size: 16px !important;
+.step-box textarea {
+    font-size: 17px !important;
     line-height: 1.6 !important;
 }
+.meta-box textarea {
+    font-size: 14px !important;
+}
 """
+
+EMPTY_OUTPUTS = ("", "", "", "", "", "", "", "")
 
 
 def _cached_curation_path(artwork_id: str) -> Path:
@@ -50,13 +114,31 @@ def _save_cache(artwork_id: str, data: dict) -> None:
     )
 
 
+def _pack(d: dict) -> tuple:
+    """Pack a curation dict into the UI output tuple order."""
+    title = d.get("title_ko", "")
+    year = d.get("artwork_year", "")
+    if year and year != "연도 미상":
+        title_display = f"{title} ({year})" if title else year
+    else:
+        title_display = title
+    return (
+        title_display,
+        d.get("period_style", ""),
+        d.get("genre", ""),
+        d.get("dominant_sense_type", ""),
+        d.get("visual_feature", ""),
+        d.get("step1_spatial_overview", ""),
+        d.get("step2_sensory_zoom_in", ""),
+        d.get("tts_script", ""),
+    )
+
+
 def build_app() -> gr.Blocks:
     records = load_samples()
     id_to_record = {f"[{r.artist}] {r.artwork_id}": r for r in records}
     choices = list(id_to_record.keys())
 
-    # Curator is constructed lazily so the UI can launch even without an API
-    # key — the user only hits the error if they actually click "큐레이션 생성".
     curator: dict[str, SensoryCurator | None] = {"instance": None}
 
     def get_curator() -> SensoryCurator:
@@ -70,57 +152,79 @@ def build_app() -> gr.Blocks:
         if cached:
             return (
                 str(rec.image_path),
-                ", ".join(cached["visual_features_extracted"]),
-                cached["sensory_mapping"]["tactile"],
-                cached["sensory_mapping"]["temperature"],
-                cached["sensory_mapping"]["spatial"],
-                cached["sensory_mapping"]["auditory"],
-                cached["sensory_mapping"]["kinesthetic"],
-                cached["final_curation_korean"],
+                *_pack(cached),
                 gr.update(value="(저장된 큐레이션을 불러왔습니다)"),
             )
         return (
             str(rec.image_path),
-            "", "", "", "", "", "", "",
+            *EMPTY_OUTPUTS,
             gr.update(value="아직 큐레이션이 없습니다. '큐레이션 생성' 버튼을 눌러주세요."),
         )
 
     def on_generate(label: str):
+        if READONLY:
+            return (
+                *EMPTY_OUTPUTS,
+                gr.update(value="🔒 데모 모드에서는 새 큐레이션 생성이 차단되어 있습니다."),
+            )
         rec = id_to_record[label]
         try:
             result = get_curator().curate(
                 rec.image_path, artwork_id=rec.artwork_id, artist=rec.artist
             )
-        except Exception as e:  # surface API errors to the UI rather than crashing
+        except Exception as e:
             err = f"큐레이션 생성 실패: {type(e).__name__}: {e}"
-            return ("", "", "", "", "", "", "", gr.update(value=err))
+            return (*EMPTY_OUTPUTS, gr.update(value=err))
 
-        _save_cache(rec.artwork_id, result.to_dict())
-        sm = result.sensory_mapping
-        return (
-            ", ".join(result.visual_features_extracted),
-            sm["tactile"],
-            sm["temperature"],
-            sm["spatial"],
-            sm["auditory"],
-            sm["kinesthetic"],
-            result.final_curation_korean,
-            gr.update(value="새 큐레이션을 생성하고 저장했습니다."),
-        )
+        d = result.to_dict()
+        _save_cache(rec.artwork_id, d)
+        return (*_pack(d), gr.update(value="새 큐레이션을 생성하고 저장했습니다."))
 
-    def on_tts(text: str):
-        if not text or not text.strip():
-            return None
-        tts = gTTS(text=text, lang="ko")
+    def _gtts_to_file(text: str) -> str:
         tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
-        tts.save(tmp.name)
+        gTTS(text=text, lang="ko").save(tmp.name)
         return tmp.name
 
-    with gr.Blocks(css=CSS, title="공감각 미술 큐레이션 PoC") as demo:
+    def on_tts(text: str):
+        """Synthesize Korean TTS, inserting a 1.5s breathing pause between the
+        artwork-intro sentence and the spatial overview so listeners can absorb
+        the title before details begin.
+        """
+        if not text or not text.strip():
+            return None
+
+        # Find the boundary: intro ends right before "먼저 작품의" (the fixed
+        # composition prefix). Fall back to single-pass TTS if not found.
+        marker = "먼저 작품의"
+        idx = text.find(marker)
+        if idx <= 0 or not _FFMPEG_OK:
+            return _gtts_to_file(text)
+
+        intro_text = text[:idx].strip()
+        body_text = text[idx:].strip()
+        if not intro_text or not body_text:
+            return _gtts_to_file(text)
+
+        try:
+            intro_path = _gtts_to_file(intro_text)
+            body_path = _gtts_to_file(body_text)
+            silence_path = _silent_mp3(INTRO_PAUSE_MS)
+            return _concat_mp3s([intro_path, silence_path, body_path])
+        except subprocess.CalledProcessError:
+            # ffmpeg unhappy; fall back to single-pass TTS rather than erroring out.
+            return _gtts_to_file(text)
+
+    with gr.Blocks(css=CSS, title="공감각 미술 큐레이션 PoC v3") as demo:
         gr.Markdown(
-            "# 시각장애인을 위한 공감각 미술 큐레이션\n"
-            "Van Gogh · Monet · Da Vinci 작품 15점을 비시각 감각언어로 옮겨봅니다."
+            "# 시각장애인을 위한 공감각 미술 큐레이션 (v3)\n"
+            "**도입 → 구도 → Step 1 공간 개요 → 스캔 가이드 → Step 2 감각 줌인 → 요약 → 요소별 훅** 의 8블록 도슨트 구조. "
+            "작가별로 지배 감각(dominant sense)이 정해져 있고, TTS에는 도입부 뒤 1.5초 호흡 포즈가 들어갑니다."
         )
+        if READONLY:
+            gr.Markdown(
+                "🔒 **데모 모드** — 사전 생성된 15개 작품 큐레이션을 둘러볼 수 있습니다. "
+                "(새로운 큐레이션 생성은 비활성화되어 있습니다.)"
+            )
 
         with gr.Row():
             with gr.Column(scale=1):
@@ -128,47 +232,81 @@ def build_app() -> gr.Blocks:
                     label="작품 선택", choices=choices, value=choices[0]
                 )
                 image = gr.Image(label="원본 이미지", type="filepath", height=420)
-                generate_btn = gr.Button("큐레이션 생성", variant="primary")
+                generate_btn = gr.Button(
+                    "큐레이션 생성", variant="primary", visible=not READONLY
+                )
                 status = gr.Markdown("")
 
             with gr.Column(scale=1):
-                features = gr.Textbox(
-                    label="추출된 시각적 특징",
-                    lines=2,
-                    elem_classes=["sensory-box"],
+                with gr.Row():
+                    title_ko = gr.Textbox(label="제목 / 연도", elem_classes=["meta-box"])
+                    period_style = gr.Textbox(label="사조", elem_classes=["meta-box"])
+                with gr.Row():
+                    genre = gr.Textbox(label="장르", elem_classes=["meta-box"])
+                    dominant_sense = gr.Textbox(
+                        label="Dominant Sense", elem_classes=["meta-box"]
+                    )
+                visual_feature = gr.Textbox(
+                    label="시각적 특징", lines=2, elem_classes=["meta-box"]
                 )
-                with gr.Accordion("감각 치환 (촉각 · 온도 · 공간 · 청각 · 운동)", open=True):
-                    tactile = gr.Textbox(label="촉각", lines=2, elem_classes=["sensory-box"])
-                    temperature = gr.Textbox(label="온도", lines=2, elem_classes=["sensory-box"])
-                    spatial = gr.Textbox(label="공간감", lines=2, elem_classes=["sensory-box"])
-                    auditory = gr.Textbox(label="청각", lines=2, elem_classes=["sensory-box"])
-                    kinesthetic = gr.Textbox(label="운동감", lines=2, elem_classes=["sensory-box"])
 
-                final = gr.Textbox(
-                    label="최종 큐레이션 (도슨트 스크립트)",
-                    lines=6,
-                    elem_classes=["big-curation"],
+                step1 = gr.Textbox(
+                    label="Step 1 — 공간 개요",
+                    lines=3,
+                    elem_classes=["step-box"],
+                )
+                step2 = gr.Textbox(
+                    label="Step 2 — 감각 줌인",
+                    lines=4,
+                    elem_classes=["step-box"],
+                )
+                tts_script = gr.Textbox(
+                    label="TTS 도슨트 스크립트 (음성용 통합 본문)",
+                    lines=7,
+                    elem_classes=["big-tts"],
                 )
                 with gr.Row():
-                    tts_btn = gr.Button("음성으로 듣기")
+                    tts_btn = gr.Button("🔊 음성으로 듣기")
                     audio = gr.Audio(label="음성", type="filepath")
 
         outputs_on_select = [
-            image, features, tactile, temperature, spatial,
-            auditory, kinesthetic, final, status,
+            image,
+            title_ko,
+            period_style,
+            genre,
+            dominant_sense,
+            visual_feature,
+            step1,
+            step2,
+            tts_script,
+            status,
         ]
         outputs_on_generate = [
-            features, tactile, temperature, spatial,
-            auditory, kinesthetic, final, status,
+            title_ko,
+            period_style,
+            genre,
+            dominant_sense,
+            visual_feature,
+            step1,
+            step2,
+            tts_script,
+            status,
         ]
 
         selector.change(on_select, inputs=selector, outputs=outputs_on_select)
         generate_btn.click(on_generate, inputs=selector, outputs=outputs_on_generate)
-        tts_btn.click(on_tts, inputs=final, outputs=audio)
+        tts_btn.click(on_tts, inputs=tts_script, outputs=audio)
         demo.load(on_select, inputs=selector, outputs=outputs_on_select)
 
     return demo
 
 
 if __name__ == "__main__":
-    build_app().launch()
+    import os
+
+    # show_api=False avoids gradio_client 1.3's JSON-schema introspection bug
+    # with pydantic >=2.10 (additionalProperties is emitted as a bool which
+    # the client's `if "const" in schema` chokes on).
+    # SHARE=1 opens a 72-hour public gradio.live tunnel.
+    share = os.environ.get("SHARE", "0") == "1"
+    build_app().launch(show_api=False, share=share)

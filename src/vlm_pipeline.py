@@ -1,15 +1,19 @@
-"""VLM curation pipeline.
+"""VLM curation pipeline (v3).
 
-Given an artwork image + the sensory ontology, ask an OpenAI vision model to
-produce a JSON curation tailored for blind / low-vision audiences.
+Given an artwork image and the gold dataset's artist→dominant_sense map,
+produce an 8-block Korean docent script (intro / composition prefix / step1
+spatial overview / scan meta-guide / sensory prefix / step2 sensory zoom-in /
+summary / per-feature sensory hooks) packaged as `tts_script`.
 
-The system prompt lives at src/prompts/system_prompt.md so it can be edited
-without touching code. The ontology lives at configs/sensory_ontology.json.
+The system prompt at src/prompts/system_prompt.md carries the structure and
+3 hand-curated few-shot examples (Van Gogh / Monet / Da Vinci). The gold
+dataset at data/gold/sensedocent_100.csv provides the artist→dominant_sense
+lookup.
 
 Usage:
     from src.vlm_pipeline import SensoryCurator
     curator = SensoryCurator()
-    result = curator.curate(image_path, artwork_id="...", artist="...")
+    result = curator.curate(image_path, artwork_id="...", artist="Vincent van Gogh")
 """
 
 from __future__ import annotations
@@ -18,21 +22,24 @@ import base64
 import io
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI
 from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SYSTEM_PROMPT_PATH = REPO_ROOT / "src" / "prompts" / "system_prompt.md"
-ONTOLOGY_PATH = REPO_ROOT / "configs" / "sensory_ontology.json"
+GOLD_CSV_PATH = REPO_ROOT / "data" / "gold" / "sensedocent_100.csv"
 
-# JSON Schema enforced on the model's output. Mirrors the contract in the prompt.
+# Schema mirrors the gold dataset columns. OpenAI strict mode requires every
+# `properties` field to also be listed in `required`, and additionalProperties
+# must be false at every level.
 CURATION_JSON_SCHEMA: dict[str, Any] = {
-    "name": "sensory_curation",
+    "name": "sensory_curation_v3",
     "strict": True,
     "schema": {
         "type": "object",
@@ -40,52 +47,72 @@ CURATION_JSON_SCHEMA: dict[str, Any] = {
         "required": [
             "artwork_id",
             "artist",
-            "visual_features_extracted",
-            "sensory_mapping",
-            "final_curation_korean",
+            "title_ko",
+            "artwork_year",
+            "period_style",
+            "genre",
+            "visual_feature",
+            "target_sense",
+            "dominant_sense_type",
+            "sensory_mapping_rule",
+            "step1_spatial_overview",
+            "step2_sensory_zoom_in",
+            "tts_script",
         ],
         "properties": {
             "artwork_id": {"type": "string"},
             "artist": {"type": "string"},
-            "visual_features_extracted": {
-                "type": "array",
-                "items": {"type": "string"},
-                "minItems": 3,
-            },
-            "sensory_mapping": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["tactile", "temperature", "spatial", "auditory", "kinesthetic"],
-                "properties": {
-                    "tactile": {"type": "string"},
-                    "temperature": {"type": "string"},
-                    "spatial": {"type": "string"},
-                    "auditory": {"type": "string"},
-                    "kinesthetic": {"type": "string"},
-                },
-            },
-            "final_curation_korean": {"type": "string"},
+            "title_ko": {"type": "string"},
+            "artwork_year": {"type": "string"},
+            "period_style": {"type": "string"},
+            "genre": {"type": "string"},
+            "visual_feature": {"type": "string"},
+            "target_sense": {"type": "string"},
+            "dominant_sense_type": {"type": "string"},
+            "sensory_mapping_rule": {"type": "string"},
+            "step1_spatial_overview": {"type": "string"},
+            "step2_sensory_zoom_in": {"type": "string"},
+            "tts_script": {"type": "string"},
         },
     },
 }
+
+# Fallback if an artist is not in the gold dataset (e.g., a future expansion).
+DEFAULT_DOMINANT_SENSE = "spatial"
 
 
 @dataclass
 class CurationResult:
     artwork_id: str
     artist: str
-    visual_features_extracted: list[str]
-    sensory_mapping: dict[str, str]
-    final_curation_korean: str
-    raw: dict[str, Any]
+    title_ko: str
+    artwork_year: str
+    period_style: str
+    genre: str
+    visual_feature: str
+    target_sense: str
+    dominant_sense_type: str
+    sensory_mapping_rule: str
+    step1_spatial_overview: str
+    step2_sensory_zoom_in: str
+    tts_script: str
+    raw: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "artwork_id": self.artwork_id,
             "artist": self.artist,
-            "visual_features_extracted": self.visual_features_extracted,
-            "sensory_mapping": self.sensory_mapping,
-            "final_curation_korean": self.final_curation_korean,
+            "title_ko": self.title_ko,
+            "artwork_year": self.artwork_year,
+            "period_style": self.period_style,
+            "genre": self.genre,
+            "visual_feature": self.visual_feature,
+            "target_sense": self.target_sense,
+            "dominant_sense_type": self.dominant_sense_type,
+            "sensory_mapping_rule": self.sensory_mapping_rule,
+            "step1_spatial_overview": self.step1_spatial_overview,
+            "step2_sensory_zoom_in": self.step2_sensory_zoom_in,
+            "tts_script": self.tts_script,
         }
 
 
@@ -103,12 +130,19 @@ def _encode_image_data_url(image_path: Path, max_edge: int = 1024) -> str:
     return f"data:image/jpeg;base64,{b64}"
 
 
-class SensoryCurator:
-    """Wraps an OpenAI vision call with the system prompt + ontology baked in.
+def _load_artist_sense_map(csv_path: Path = GOLD_CSV_PATH) -> dict[str, str]:
+    if not csv_path.is_file():
+        return {}
+    df = pd.read_csv(csv_path)
+    return df.groupby("artist")["dominant_sense_type"].first().to_dict()
 
-    The system prompt and ontology are loaded once at construction time. They
-    are reused on every call, which means OpenAI's automatic prompt caching
-    kicks in for the static prefix.
+
+class SensoryCurator:
+    """Wraps an OpenAI vision call with the v2 system prompt + gold artist map.
+
+    The system prompt (including 3 hand-curated few-shot examples) is loaded
+    once at construction time. The artist→dominant_sense map is loaded from
+    the gold CSV so we don't have to hardcode it.
     """
 
     def __init__(
@@ -116,7 +150,7 @@ class SensoryCurator:
         model: str | None = None,
         api_key: str | None = None,
         system_prompt_path: Path = SYSTEM_PROMPT_PATH,
-        ontology_path: Path = ONTOLOGY_PATH,
+        gold_csv_path: Path = GOLD_CSV_PATH,
     ):
         load_dotenv()
         self.model = model or os.environ.get("OPENAI_MODEL", "gpt-4o")
@@ -127,34 +161,30 @@ class SensoryCurator:
             )
         self.client = OpenAI(api_key=api_key)
         self._system_prompt = system_prompt_path.read_text(encoding="utf-8")
-        self._ontology_text = ontology_path.read_text(encoding="utf-8")
+        self.artist_sense_map = _load_artist_sense_map(gold_csv_path)
 
-    def _build_system_message(self) -> str:
-        return (
-            f"{self._system_prompt}\n\n"
-            "---\n\n"
-            "다음은 번역에 참고할 `sensory_ontology` 사전이다. "
-            "그대로 베끼지 말고, 작품의 구체적 디테일에 맞게 변주해 활용하라.\n\n"
-            "```json\n"
-            f"{self._ontology_text}\n"
-            "```\n"
-        )
+    def dominant_sense_for(self, artist: str) -> str:
+        return self.artist_sense_map.get(artist, DEFAULT_DOMINANT_SENSE)
 
     def curate(
         self,
         image_path: str | Path,
         artwork_id: str,
         artist: str,
+        dominant_sense: str | None = None,
         extra_user_hint: str | None = None,
     ) -> CurationResult:
         image_path = Path(image_path)
         data_url = _encode_image_data_url(image_path)
+        dominant_sense = dominant_sense or self.dominant_sense_for(artist)
 
         user_text = (
             f"artwork_id: {artwork_id}\n"
-            f"artist: {artist}\n\n"
-            "이 그림을 시각장애인 관람객에게 들려줄 공감각 큐레이션으로 옮겨라. "
-            "출력은 지정된 JSON 스키마 한 객체만."
+            f"artist: {artist}\n"
+            f"dominant_sense_type: {dominant_sense}\n\n"
+            "이 그림을 위의 dominant_sense에 따라 2-step 도슨트 스크립트로 옮겨라. "
+            "지정된 JSON 스키마 한 객체만 출력하라. "
+            "artwork_id, artist, dominant_sense_type 값은 입력 그대로 사용하라."
         )
         if extra_user_hint:
             user_text += f"\n\n추가 지시: {extra_user_hint}"
@@ -163,7 +193,7 @@ class SensoryCurator:
             model=self.model,
             response_format={"type": "json_schema", "json_schema": CURATION_JSON_SCHEMA},
             messages=[
-                {"role": "system", "content": self._build_system_message()},
+                {"role": "system", "content": self._system_prompt},
                 {
                     "role": "user",
                     "content": [
@@ -172,23 +202,17 @@ class SensoryCurator:
                     ],
                 },
             ],
-            temperature=0.7,
+            temperature=0.4,
         )
         content = response.choices[0].message.content or "{}"
         data = json.loads(content)
 
-        # The model may echo artwork_id/artist; force the canonical values.
+        # Force the canonical input values in case the model drifted.
         data["artwork_id"] = artwork_id
         data["artist"] = artist
+        data["dominant_sense_type"] = dominant_sense
 
-        return CurationResult(
-            artwork_id=data["artwork_id"],
-            artist=data["artist"],
-            visual_features_extracted=data["visual_features_extracted"],
-            sensory_mapping=data["sensory_mapping"],
-            final_curation_korean=data["final_curation_korean"],
-            raw=data,
-        )
+        return CurationResult(raw=data, **{k: data[k] for k in CURATION_JSON_SCHEMA["schema"]["required"]})
 
     def curate_to_file(
         self,
@@ -196,8 +220,9 @@ class SensoryCurator:
         artwork_id: str,
         artist: str,
         out_dir: Path,
+        **kwargs: Any,
     ) -> Path:
-        result = self.curate(image_path, artwork_id=artwork_id, artist=artist)
+        result = self.curate(image_path, artwork_id=artwork_id, artist=artist, **kwargs)
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / f"{artwork_id}.json"
         out_path.write_text(
@@ -208,8 +233,7 @@ class SensoryCurator:
 
 
 if __name__ == "__main__":
-    # Tiny CLI for ad-hoc test:
-    #   python -m src.vlm_pipeline path/to/image.jpg ARTWORK_ID "Artist Name"
+    # CLI: python -m src.vlm_pipeline <image> <artwork_id> <artist>
     import sys
 
     if len(sys.argv) != 4:

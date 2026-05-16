@@ -1,28 +1,47 @@
 # art_archive — 시각장애인을 위한 공감각 미술 큐레이션 PoC
 
-회화 작품의 시각 요소(색·붓터치·구도·빛·움직임)를 **촉각·온도·공간감·청각·운동감**으로
-옮겨, 시각장애인 관람객이 작품을 몸으로 이해하도록 돕는 데이터 파이프라인과 데모.
+회화 작품을 **2단계 도슨트 스크립트**(공간 개요 → 작가별 지배 감각 줌인)로 옮겨,
+시각장애인 관람객이 작품을 몸으로 이해하도록 돕는 데이터 파이프라인과 데모.
 
-데이터셋은 Kaggle의 [Best Artworks of All Time](https://www.kaggle.com/datasets/ikarus777/best-artworks-of-all-time)을
-사용하며, 화풍이 뚜렷한 세 작가(Van Gogh, Monet, Da Vinci)의 작품 각 5점, 총 15점을 샘플링합니다.
+## 데이터
+
+- **이미지 풀**: Kaggle [Best Artworks of All Time](https://www.kaggle.com/datasets/ikarus777/best-artworks-of-all-time).
+  화풍이 뚜렷한 세 작가(Van Gogh, Monet, Da Vinci) 각 5점, 총 15점을 PoC 샘플로 사용.
+- **Gold dataset** (`data/gold/sensedocent_100.csv`): 손으로 큐레이션한 100개 정답셋.
+  10작가 × 10작품 × 1지배감각(작가별로 고정). 시스템 프롬프트의 few-shot 예시 및 향후 평가 기준.
+
+## Dominant sense 시스템
+
+작가마다 한 가지 지배 감각이 정해져 있어 큐레이션 톤이 일관됩니다:
+
+| 작가 | dominant_sense |
+|---|---|
+| Van Gogh | vibration (진동·박동) |
+| Monet | humidity (습도·대기감) |
+| Da Vinci | spatial (깊이·실재감) |
+| Klimt | materiality | Renoir | softness |
+| Cézanne | weight | Picasso | pressure |
+| Matisse | rhythm | Munch | psychological_pressure |
+| 김홍도/신윤복 | movement | | |
 
 ## 디렉토리 구조
 
 ```
 art_archive/
-├── configs/sensory_ontology.json    # 시각→비시각 감각 매핑 사전
+├── data/
+│   ├── raw/                         # Kaggle 원본 (gitignore, 로컬 전용)
+│   ├── samples/                     # 커밋되는 15개 PoC 샘플
+│   └── gold/sensedocent_100.csv     # 손 큐레이션 정답셋 (100개)
+├── configs/sensory_ontology.json    # (v1 레거시) 시각→감각 사전, 현재 미사용
 ├── src/
 │   ├── data_loader.py               # 모듈 1: 데이터 로드/샘플링
-│   ├── vlm_pipeline.py              # 모듈 3: OpenAI VLM 큐레이션
-│   └── prompts/system_prompt.md     # VLM 시스템 프롬프트 (별도 버전관리)
+│   ├── vlm_pipeline.py              # 모듈 3: VLM 큐레이션 (v2 — 2-step)
+│   └── prompts/system_prompt.md     # 시스템 프롬프트 + few-shot (Van Gogh/Monet/Da Vinci)
 ├── scripts/
-│   ├── download_kaggle.py           # Kaggle 원본 다운로드 (로컬 전용)
-│   └── build_samples.py             # 15개 샘플 추출
-├── data/
-│   ├── raw/                         # Kaggle 원본 (gitignore)
-│   └── samples/                     # 커밋되는 15개 샘플
-├── outputs/curations/               # 생성된 큐레이션 JSON (정답셋 후보)
-├── app.py                           # 모듈 4: Gradio PoC
+│   ├── download_kaggle.py
+│   └── build_samples.py
+├── outputs/curations/               # 생성된 큐레이션 JSON
+├── app.py                           # 모듈 4: Gradio PoC (2-step UI)
 └── requirements.txt
 ```
 

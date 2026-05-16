@@ -9,6 +9,7 @@ Run:
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -30,13 +31,25 @@ def _check_credentials() -> None:
         )
 
 
+def _kaggle_cmd() -> list[str]:
+    # Prefer the `kaggle` script sitting next to the current python (the venv's
+    # bin dir). Fall back to PATH lookup, then to `python -m kaggle`.
+    sibling = Path(sys.executable).parent / "kaggle"
+    if sibling.is_file():
+        return [str(sibling)]
+    on_path = shutil.which("kaggle")
+    if on_path:
+        return [on_path]
+    return [sys.executable, "-m", "kaggle"]
+
+
 def main() -> None:
     _check_credentials()
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
     print(f"Downloading {DATASET} to {RAW_DIR} ...")
     subprocess.run(
-        ["kaggle", "datasets", "download", "-d", DATASET, "-p", str(RAW_DIR)],
+        [*_kaggle_cmd(), "datasets", "download", "-d", DATASET, "-p", str(RAW_DIR)],
         check=True,
     )
 
