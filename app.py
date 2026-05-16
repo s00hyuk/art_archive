@@ -15,12 +15,26 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Mask any OpenAI-style keys or bearer tokens that might appear in tracebacks
+# (e.g. when httpx echoes back an Illegal-header bearer value).
+_KEY_SCRUB = re.compile(r"sk-[A-Za-z0-9_\-]{10,}")
+
+
+def _scrub_secrets(text: str) -> str:
+    return _KEY_SCRUB.sub("sk-***REDACTED***", text)
+
+
+def _log_exc(prefix: str) -> None:
+    tb = traceback.format_exc()
+    print(f"{prefix}\n{_scrub_secrets(tb)}", file=sys.stderr, flush=True)
 
 import gradio as gr
 from gtts import gTTS
@@ -328,9 +342,8 @@ def build_app() -> gr.Blocks:
                 rec.image_path, artwork_id=rec.artwork_id, artist=rec.artist
             )
         except Exception as e:
-            err = f"큐레이션 생성 실패: {type(e).__name__}: {e}"
-            print(f"[sample] {err}", file=sys.stderr, flush=True)
-            traceback.print_exc(file=sys.stderr)
+            err = f"큐레이션 생성 실패: {type(e).__name__}: {_scrub_secrets(str(e))}"
+            _log_exc(f"[sample] {err}")
             return (*EMPTY_OUTPUTS, gr.update(value=err))
         d = result.to_dict()
         _save_cache(rec.artwork_id, d)
@@ -383,16 +396,13 @@ def build_app() -> gr.Blocks:
                 image_path, artwork_id=artwork_id, artist=artist, dominant_sense=sense
             )
         except Exception as e:
-            err = f"큐레이션 생성 실패: {type(e).__name__}: {e}"
-            # Also dump full traceback to stderr so it shows up in HF Space Logs.
-            print(f"[upload] {err}", file=sys.stderr, flush=True)
-            traceback.print_exc(file=sys.stderr)
-            # Show key prefix in logs (NOT the UI) for debugging — masked so the
-            # value can't be reconstructed.
+            err = f"큐레이션 생성 실패: {type(e).__name__}: {_scrub_secrets(str(e))}"
+            _log_exc(f"[upload] {err}")
             k = os.environ.get("OPENAI_API_KEY", "")
             print(
-                f"[upload] OPENAI_API_KEY length={len(k)}, "
-                f"starts_with={k[:7]!r} (env var presence diagnostic)",
+                f"[upload] env: OPENAI_API_KEY length={len(k)}, "
+                f"len_after_strip={len(k.strip())}, "
+                f"has_trailing_whitespace={k != k.rstrip()}",
                 file=sys.stderr, flush=True,
             )
             return (

@@ -253,8 +253,11 @@ class SensoryCurator:
         gold_csv_path: Path = GOLD_CSV_PATH,
     ):
         load_dotenv()
-        self.model = model or os.environ.get("OPENAI_MODEL", "gpt-4o")
-        api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self.model = (model or os.environ.get("OPENAI_MODEL", "gpt-4o")).strip()
+        # .strip() guards against trailing newlines/whitespace from copy-paste
+        # into HF Spaces Secrets or .env files — httpx rejects bearer tokens
+        # containing '\n' as Illegal header value, surfacing as APIConnectionError.
+        api_key = (api_key or os.environ.get("OPENAI_API_KEY", "")).strip()
         if not api_key:
             raise RuntimeError(
                 "OPENAI_API_KEY not set. Copy .env.example to .env and fill it in."
