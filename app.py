@@ -16,7 +16,9 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -327,6 +329,8 @@ def build_app() -> gr.Blocks:
             )
         except Exception as e:
             err = f"큐레이션 생성 실패: {type(e).__name__}: {e}"
+            print(f"[sample] {err}", file=sys.stderr, flush=True)
+            traceback.print_exc(file=sys.stderr)
             return (*EMPTY_OUTPUTS, gr.update(value=err))
         d = result.to_dict()
         _save_cache(rec.artwork_id, d)
@@ -380,6 +384,17 @@ def build_app() -> gr.Blocks:
             )
         except Exception as e:
             err = f"큐레이션 생성 실패: {type(e).__name__}: {e}"
+            # Also dump full traceback to stderr so it shows up in HF Space Logs.
+            print(f"[upload] {err}", file=sys.stderr, flush=True)
+            traceback.print_exc(file=sys.stderr)
+            # Show key prefix in logs (NOT the UI) for debugging — masked so the
+            # value can't be reconstructed.
+            k = os.environ.get("OPENAI_API_KEY", "")
+            print(
+                f"[upload] OPENAI_API_KEY length={len(k)}, "
+                f"starts_with={k[:7]!r} (env var presence diagnostic)",
+                file=sys.stderr, flush=True,
+            )
             return (
                 *EMPTY_OUTPUTS,
                 gr.update(value=err),
