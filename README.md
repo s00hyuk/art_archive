@@ -1,3 +1,15 @@
+---
+title: 공감각 미술 큐레이션
+emoji: 🎨
+colorFrom: blue
+colorTo: indigo
+sdk: gradio
+sdk_version: "4.44.1"
+python_version: "3.9"
+app_file: app.py
+pinned: false
+---
+
 # art_archive — 시각장애인을 위한 공감각 미술 큐레이션 PoC
 
 회화 작품을 **2단계 도슨트 스크립트**(공간 개요 → 작가별 지배 감각 줌인)로 옮겨,
