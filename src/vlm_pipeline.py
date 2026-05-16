@@ -1,9 +1,9 @@
-"""VLM curation pipeline (v3).
+"""VLM curation pipeline (v4 — naturalized).
 
 Given an artwork image and the gold dataset's artist→dominant_sense map,
-produce an 8-block Korean docent script (intro / composition prefix / step1
-spatial overview / scan meta-guide / sensory prefix / step2 sensory zoom-in /
-summary / per-feature sensory hooks) packaged as `tts_script`.
+produce a 7-block Korean docent script (intro / composition prefix-with-천천히 /
+step1 spatial overview / natural scan guide / sensory prefix / step2 sensory
+zoom-in / natural merged closing) packaged as `tts_script`.
 
 The system prompt at src/prompts/system_prompt.md carries the structure and
 3 hand-curated few-shot examples (Van Gogh / Monet / Da Vinci). The gold
@@ -39,7 +39,7 @@ GOLD_CSV_PATH = REPO_ROOT / "data" / "gold" / "sensedocent_100.csv"
 # `properties` field to also be listed in `required`, and additionalProperties
 # must be false at every level.
 CURATION_JSON_SCHEMA: dict[str, Any] = {
-    "name": "sensory_curation_v3",
+    "name": "sensory_curation_v4",
     "strict": True,
     "schema": {
         "type": "object",

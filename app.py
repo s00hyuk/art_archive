@@ -1,4 +1,4 @@
-"""Gradio PoC for the sensory curation pipeline (v3 — 8-block tts_script).
+"""Gradio PoC for the sensory curation pipeline (v4 — 7-block naturalized tts).
 
 Run:
     python app.py
@@ -214,10 +214,10 @@ def build_app() -> gr.Blocks:
             # ffmpeg unhappy; fall back to single-pass TTS rather than erroring out.
             return _gtts_to_file(text)
 
-    with gr.Blocks(css=CSS, title="공감각 미술 큐레이션 PoC v3") as demo:
+    with gr.Blocks(css=CSS, title="공감각 미술 큐레이션 PoC v4") as demo:
         gr.Markdown(
-            "# 시각장애인을 위한 공감각 미술 큐레이션 (v3)\n"
-            "**도입 → 구도 → Step 1 공간 개요 → 스캔 가이드 → Step 2 감각 줌인 → 요약 → 요소별 훅** 의 8블록 도슨트 구조. "
+            "# 시각장애인을 위한 공감각 미술 큐레이션 (v4)\n"
+            "**도입 → 구도 → Step 1 공간 개요 → 자연 스캔 → Step 2 감각 줌인 → 자연 마무리** 의 7블록 자연화 도슨트. "
             "작가별로 지배 감각(dominant sense)이 정해져 있고, TTS에는 도입부 뒤 1.5초 호흡 포즈가 들어갑니다."
         )
         if READONLY:
