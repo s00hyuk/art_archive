@@ -72,17 +72,188 @@ SENSE_TYPES = [
 ]
 
 CSS = """
-.big-tts textarea {
-    font-size: 22px !important;
-    line-height: 1.75 !important;
-    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+/* ---------------------------------------------------------------------------
+ * High-contrast accessible theme (WCAG 2.1 AA/AAA target)
+ *
+ * Goals:
+ *   - >= 7:1 contrast for body text (AAA)
+ *   - >= 4.5:1 for large text / UI components (AA)
+ *   - 18px base font, clear focus indicators, generous tap targets (44px)
+ *   - Avoid mid-grey text that fails contrast checks.
+ * --------------------------------------------------------------------------- */
+
+:root, .gradio-container {
+    --sd-bg: #ffffff;
+    --sd-fg: #000000;
+    --sd-fg-muted: #1a1a1a;
+    --sd-border: #000000;
+    --sd-border-soft: #4a4a4a;
+    --sd-accent: #0040a0;       /* AAA blue on white (8.6:1) */
+    --sd-accent-fg: #ffffff;
+    --sd-focus: #ffbf00;        /* high-vis amber focus ring */
+    --sd-danger: #b00020;
+    --sd-panel: #f5f5f5;
+    --sd-font: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
-.step-box textarea {
-    font-size: 17px !important;
+
+.gradio-container {
+    background: var(--sd-bg) !important;
+    color: var(--sd-fg) !important;
+    font-family: var(--sd-font) !important;
+    font-size: 18px !important;
     line-height: 1.6 !important;
 }
-.meta-box textarea {
-    font-size: 14px !important;
+
+/* Headings & markdown */
+.gradio-container h1, .gradio-container h2, .gradio-container h3,
+.gradio-container .prose h1, .gradio-container .prose h2, .gradio-container .prose h3 {
+    color: var(--sd-fg) !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.01em;
+}
+.gradio-container h1, .gradio-container .prose h1 { font-size: 32px !important; }
+.gradio-container h2, .gradio-container .prose h2 { font-size: 26px !important; }
+.gradio-container p, .gradio-container .prose p,
+.gradio-container .prose li, .gradio-container .prose {
+    color: var(--sd-fg) !important;
+    font-size: 18px !important;
+    line-height: 1.7 !important;
+}
+.gradio-container .prose strong { color: var(--sd-fg) !important; font-weight: 800 !important; }
+
+/* Labels (form labels above inputs) */
+.gradio-container label, .gradio-container .label-wrap span,
+.gradio-container .block-title, .gradio-container span[data-testid="block-info"] {
+    color: var(--sd-fg) !important;
+    font-weight: 700 !important;
+    font-size: 17px !important;
+}
+
+/* Inputs: textbox, dropdown, number */
+.gradio-container textarea,
+.gradio-container input[type="text"],
+.gradio-container input[type="number"],
+.gradio-container .wrap.svelte-1ipelgc input,
+.gradio-container select {
+    color: var(--sd-fg) !important;
+    background: var(--sd-bg) !important;
+    border: 2px solid var(--sd-border-soft) !important;
+    border-radius: 6px !important;
+    font-size: 17px !important;
+    line-height: 1.6 !important;
+    padding: 10px 12px !important;
+}
+.gradio-container textarea:focus,
+.gradio-container input:focus,
+.gradio-container select:focus,
+.gradio-container button:focus,
+.gradio-container .tab-nav button:focus,
+.gradio-container [role="button"]:focus {
+    outline: 4px solid var(--sd-focus) !important;
+    outline-offset: 2px !important;
+    border-color: var(--sd-fg) !important;
+}
+
+/* Buttons — large hit target, strong contrast */
+.gradio-container button {
+    min-height: 48px !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    border: 2px solid var(--sd-border) !important;
+    border-radius: 6px !important;
+    padding: 10px 18px !important;
+    color: var(--sd-fg) !important;
+    background: var(--sd-bg) !important;
+}
+.gradio-container button.primary, .gradio-container button[variant="primary"] {
+    background: var(--sd-accent) !important;
+    color: var(--sd-accent-fg) !important;
+    border-color: var(--sd-accent) !important;
+}
+.gradio-container button:hover {
+    background: var(--sd-fg) !important;
+    color: var(--sd-bg) !important;
+    border-color: var(--sd-fg) !important;
+}
+.gradio-container button.primary:hover, .gradio-container button[variant="primary"]:hover {
+    background: #002060 !important;
+    border-color: #002060 !important;
+    color: var(--sd-accent-fg) !important;
+}
+
+/* Tabs — clear selected state */
+.gradio-container .tab-nav button {
+    color: var(--sd-fg) !important;
+    background: var(--sd-bg) !important;
+    border-bottom: 4px solid transparent !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+}
+.gradio-container .tab-nav button.selected {
+    border-bottom-color: var(--sd-accent) !important;
+    color: var(--sd-accent) !important;
+    background: var(--sd-bg) !important;
+}
+
+/* Dropdown menu items */
+.gradio-container ul[role="listbox"] li,
+.gradio-container .options li {
+    color: var(--sd-fg) !important;
+    background: var(--sd-bg) !important;
+    font-size: 17px !important;
+    padding: 10px 12px !important;
+}
+.gradio-container ul[role="listbox"] li:hover,
+.gradio-container .options li:hover,
+.gradio-container ul[role="listbox"] li[aria-selected="true"] {
+    background: var(--sd-fg) !important;
+    color: var(--sd-bg) !important;
+}
+
+/* Panels / borders around blocks */
+.gradio-container .block, .gradio-container .form,
+.gradio-container .panel {
+    border-color: var(--sd-border-soft) !important;
+}
+
+/* Existing typography hooks — keep but recolor */
+.big-tts textarea {
+    font-size: 22px !important;
+    line-height: 1.85 !important;
+    font-family: var(--sd-font);
+    color: var(--sd-fg) !important;
+    background: var(--sd-bg) !important;
+}
+.step-box textarea {
+    font-size: 18px !important;
+    line-height: 1.7 !important;
+    color: var(--sd-fg) !important;
+    background: var(--sd-bg) !important;
+}
+.meta-box textarea, .meta-box input {
+    font-size: 17px !important;
+    color: var(--sd-fg) !important;
+    background: var(--sd-bg) !important;
+}
+
+/* Status / quota markdown — make remaining count loud */
+.gradio-container .prose code {
+    background: var(--sd-panel) !important;
+    color: var(--sd-fg) !important;
+    border: 1px solid var(--sd-border-soft);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* Skip-link target for keyboard users */
+#sd-main { scroll-margin-top: 16px; }
+
+/* Honor user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .gradio-container *, .gradio-container *::before, .gradio-container *::after {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+    }
 }
 """
 
@@ -292,9 +463,35 @@ def on_tts(text: str):
 # ---------------------------------------------------------------------------
 
 
+def _dropdown_label(rec) -> str:
+    """Build a Korean-friendly dropdown label from the cached curation.
+
+    Falls back to "[artist] artwork_id" when the cache is missing fields.
+    """
+    cached = _load_cached(rec.artwork_id) or {}
+    artist_ko = cached.get("artist_ko") or rec.artist
+    title_ko = cached.get("title_ko") or cached.get("artwork_name") or rec.artwork_id
+    year = cached.get("artwork_year") or ""
+    if year and year != "연도 미상":
+        return f"[{artist_ko}] {title_ko} ({year})"
+    return f"[{artist_ko}] {title_ko}"
+
+
 def build_app() -> gr.Blocks:
     records = load_samples()
-    id_to_record = {f"[{r.artist}] {r.artwork_id}": r for r in records}
+    # Build label → record map. Disambiguate any duplicate labels by appending
+    # the artwork_id so each entry stays unique even if two paintings share a
+    # title.
+    id_to_record: dict = {}
+    seen: dict[str, int] = {}
+    for r in records:
+        label = _dropdown_label(r)
+        if label in seen:
+            seen[label] += 1
+            label = f"{label} #{seen[label]}"
+        else:
+            seen[label] = 1
+        id_to_record[label] = r
     choices = list(id_to_record.keys())
 
     curator: dict[str, SensoryCurator | None] = {"instance": None}
@@ -438,9 +635,17 @@ def build_app() -> gr.Blocks:
                 with gr.Row():
                     with gr.Column(scale=1):
                         selector = gr.Dropdown(
-                            label="작품 선택", choices=choices, value=choices[0]
+                            label="작품 선택",
+                            choices=choices,
+                            value=choices[0],
+                            info="키보드 화살표 위·아래로 작품을 바꿀 수 있습니다.",
                         )
-                        image = gr.Image(label="원본 이미지", type="filepath", height=420)
+                        image = gr.Image(
+                            label="원본 이미지 (시각 참고용)",
+                            type="filepath",
+                            height=420,
+                            show_download_button=True,
+                        )
                         generate_btn = gr.Button(
                             "큐레이션 생성", variant="primary", visible=not READONLY
                         )
