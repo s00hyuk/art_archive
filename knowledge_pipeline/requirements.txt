@@ -1,0 +1,9 @@
+# Notion knowledge pipeline
+notion-client>=2.2.1        # official Notion SDK
+openai>=1.40.0             # LLM structured extraction
+python-dotenv>=1.0.0
+
+# Content extraction
+trafilatura>=1.9.0         # web article main-text extraction
+pypdf>=4.2.0               # PDF text extraction
+requests>=2.31.0

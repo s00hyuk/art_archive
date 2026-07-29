@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "version": "0.3",
+    "purpose": "Notion 'Personal Knowledge OS' 분류를 위한 씨앗 온톨로지. LLM 분류기가 이 값들에 맞춰 태깅하고, 새 개념/엔터티는 검토 상태='제안'으로만 생성한다.",
+    "design_notes": [
+      "topics: 최상위 도메인은 일반적 수준으로 3개(AI·기술 / 인문예술 / 사회경제) + 개인 노트. Concepts.분야 및 분류 힌트로 사용.",
+      "entity_kinds_notion: Entities.유형 select 값과 정확히 일치해야 함.",
+      "claim_relations_notion: Claims.관계 select 값과 정확히 일치해야 함.",
+      "subject_notion: Inbox.주제 multi_select 값(업무/개인/연구). 도메인과는 다른 축(용도)."
+    ]
+  },
+
+  "topics": [
+    {
+      "name": "AI · 기술",
+      "definition": "인공지능·소프트웨어·시스템 등 기술 전반. 모델·기법·인프라·제품.",
+      "children": ["AI · 기계학습", "LLM · 생성모델", "소프트웨어 · 시스템", "데이터 · 인프라", "제품 · 개발"]
+    },
+    {
+      "name": "인문예술",
+      "definition": "예술·문학·철학·역사 등 인문·예술 담론과 작품.",
+      "children": ["미술 · 도슨트", "공감각 · 감각 번역", "철학 · 사상", "문학 · 글쓰기", "역사 · 문화"]
+    },
+    {
+      "name": "사회경제",
+      "definition": "사회·정책·경제·산업·시장 동향과 분석.",
+      "children": ["경제 · 시장", "비즈니스 · 산업", "정책 · 제도", "사회 · 트렌드"]
+    },
+    {
+      "name": "개인 노트 · 아이디어",
+      "definition": "출처 없는 자기 메모, 착상, 할 일성 아이디어.",
+      "children": []
+    }
+  ],
+
+  "entity_kinds_notion": ["인물", "조직", "기술", "제품", "장소", "기타"],
+
+  "claim_relations_notion": ["주장", "찬성", "반박", "보완"],
+
+  "subject_notion": ["업무", "개인", "연구"]
+}
