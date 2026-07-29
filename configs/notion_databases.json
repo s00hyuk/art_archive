@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "purpose": "IDs of the 'Personal Knowledge OS' Notion databases the pipeline targets.",
+    "note": "These are workspace object IDs (not secrets). The worker also needs a NOTION_TOKEN in .env — a Notion internal integration shared with these 4 databases."
+  },
+  "parent_page_id": "3ac2d21c-961d-81c0-aa6b-ead23aed60b1",
+  "databases": {
+    "inbox":    { "id": "977c9481-f47e-4892-8b84-24a8236831aa", "title": "Knowledge Inbox" },
+    "concepts": { "id": "3db62bfa-b693-4159-8bc9-211e719607c7", "title": "Concepts" },
+    "entities": { "id": "9f4b16da-8894-4c95-86a9-28dae22a1806", "title": "Entities" },
+    "claims":   { "id": "3e54f8ff-cebe-45e4-a5ed-90c0ca990c4e", "title": "Claims" }
+  }
+}

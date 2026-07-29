@@ -1,9 +1,10 @@
 {
   "_meta": {
-    "version": "0.1",
+    "version": "0.2",
     "purpose": "Seed taxonomy + entity types for the Notion knowledge DB. The LLM classifier maps ingested items to these Topics; unmatched proposals are created in Notion with Status=Review, not auto-approved.",
     "design_notes": [
-      "Keep the top-level small (10~20). Depth grows by promoting Review items, not by pre-listing everything.",
+      "Top-level domains are intentionally general (AI·기술 / 인문예술 / 사회경제 + 개인 노트).",
+      "Depth grows by promoting Review items, not by pre-listing everything.",
       "topics: 계층 택소노미. 각 항목은 children으로 하위 주제를 가질 수 있음.",
       "entity_kinds: Entities DB의 Kind select 값. 온톨로지 노드 유형.",
       "relation_types: Entities 간(self-relation) 연결에 쓰는 술어(predicate) 후보."
@@ -12,34 +13,36 @@
 
   "topics": [
     {
-      "name": "AI · 기계학습",
-      "definition": "인공지능, 머신러닝/딥러닝 모델·기법·응용.",
-      "children": ["LLM · 생성모델", "컴퓨터 비전", "평가 · 벤치마크", "에이전트 · 도구사용"]
+      "name": "AI · 기술",
+      "definition": "인공지능·소프트웨어·시스템 등 기술 전반. 모델·기법·인프라·제품.",
+      "children": [
+        "AI · 기계학습",
+        "LLM · 생성모델",
+        "소프트웨어 · 시스템",
+        "데이터 · 인프라",
+        "제품 · 개발"
+      ]
     },
     {
-      "name": "소프트웨어 · 시스템",
-      "definition": "소프트웨어 공학, 인프라, 데이터 파이프라인, 개발 방법론.",
-      "children": ["데이터 엔지니어링", "인프라 · 배포", "개발 생산성"]
+      "name": "인문예술",
+      "definition": "예술·문학·철학·역사 등 인문·예술 담론과 작품.",
+      "children": [
+        "미술 · 도슨트",
+        "공감각 · 감각 번역",
+        "철학 · 사상",
+        "문학 · 글쓰기",
+        "역사 · 문화"
+      ]
     },
     {
-      "name": "제품 · 디자인",
-      "definition": "제품 전략, UX/접근성, 서비스 디자인.",
-      "children": ["접근성 · 포용적 디자인", "UX 리서치"]
-    },
-    {
-      "name": "예술 · 문화",
-      "definition": "미술·음악·문학 등 예술 이론과 작품, 문화 담론.",
-      "children": ["미술사 · 도슨트", "공감각 · 감각 번역"]
-    },
-    {
-      "name": "인문 · 사회",
-      "definition": "철학, 심리, 사회과학, 정책.",
-      "children": []
-    },
-    {
-      "name": "비즈니스 · 시장",
-      "definition": "산업 동향, 스타트업, 시장/경제 분석.",
-      "children": []
+      "name": "사회경제",
+      "definition": "사회·정책·경제·산업·시장 동향과 분석.",
+      "children": [
+        "경제 · 시장",
+        "비즈니스 · 산업",
+        "정책 · 제도",
+        "사회 · 트렌드"
+      ]
     },
     {
       "name": "개인 노트 · 아이디어",
